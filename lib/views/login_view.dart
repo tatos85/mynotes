@@ -1,10 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dart:developer' as devtools show log;
 
 import 'package:mynotes/constants/routes.dart';
-
-import '../utilities/show_error_dialog.dart';
+import 'package:mynotes/services/auth/auth_exceptions.dart';
+import 'package:mynotes/services/auth/auth_service.dart';
+import 'package:mynotes/utilities/show_error_dialog.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({Key? key}) : super(key: key);
@@ -58,13 +58,10 @@ class _LoginViewState extends State<LoginView> {
               final email = _email.text;
               final password = _password.text;
               try {
-                await FirebaseAuth.instance.signInWithEmailAndPassword(
-                  email: email,
-                  password: password,
-                );
-
-                final user = FirebaseAuth.instance.currentUser;
-                if (user?.emailVerified ?? false) {
+                await AuthService.firebase()
+                    .logIn(email: email, password: password);
+                final user = AuthService.firebase().currentUser;
+                if (user?.isEmailVerified ?? false) {
                   //User verified
                   Navigator.of(context)
                       .pushNamedAndRemoveUntil(notesRoute, (route) => false);
@@ -73,23 +70,12 @@ class _LoginViewState extends State<LoginView> {
                   Navigator.of(context).pushNamedAndRemoveUntil(
                       verifyEmailRoute, (route) => false);
                 }
-
-                //devtools.log(userCredential.toString());
-              } on FirebaseAuthException catch (e) {
-                switch (e.code) {
-                  case 'user-not-found':
-                    await showErrorDialog(context, 'User not found');
-                    //devtools.log('User not found');
-                    break;
-                  case 'wrong-password':
-                    await showErrorDialog(context, 'Wrong credentials');
-                    // devtools.log('Wrong password');
-                    break;
-                  default:
-                    await showErrorDialog(context, 'Error: ${e.code}');
-                  // devtools
-                  //     .log('Somthing bad happened with firebase: ' + e.code);
-                }
+              } on UserNotFoundAuthException {
+                await showErrorDialog(context, 'User not found');
+              } on WrongPasswordAuthException {
+                await showErrorDialog(context, 'Wrong credentials');
+              } on GenericAuthException {
+                await showErrorDialog(context, 'Authentication Error');
               } on Exception catch (e) {
                 await showErrorDialog(context, 'Error: ${e.toString()}');
                 // devtools.log('Something bad happened');
